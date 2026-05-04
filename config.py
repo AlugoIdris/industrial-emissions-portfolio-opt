@@ -25,8 +25,14 @@ CLUSTER_SEED    = 42
 N_INIT          = 20         # K-means restarts
 
 # ── Optimisation ───────────────────────────────────────────────────
-BUDGET_TOTAL    = 200_000    # fixed budget for LP and RL experiments
-BUDGET_PER_FAC  = 150_000    # per-facility cap — forces budget to spread across ≥2 facilities
+# BUDGET_TOTAL is set to 30% of the lp_min_budget() solution (€5,085,821),
+# which is the minimum investment to achieve portfolio P ≥ 0.80 across all
+# 30 facilities (first-order Taylor linearisation of norm.cdf).
+# 30% = €1,525,746 → rounded to €1,500,000 as the "moderately constrained" scenario.
+# BUDGET_PER_FAC is set high (non-binding) so the global budget constraint
+# drives allocation rather than a per-facility cap.
+BUDGET_TOTAL    = 1_500_000  # 30% of full-compliance cost (€5,085,821)
+BUDGET_PER_FAC  = 500_000    # per-facility cap — non-binding; global budget constraint dominates
 TARGET_YEAR     = 2030
 REDUCTION_TARGET = 0.10      # 10% vs 2022 baseline
 

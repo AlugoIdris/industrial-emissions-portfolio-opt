@@ -353,21 +353,35 @@ def lp_min_budget(
 # ── Summary ────────────────────────────────────────────────────────
 
 def portfolio_summary(selected_df: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate selected interventions by facility.
+    """Aggregate LP-allocated interventions by facility.
+
+    Uses x_lp fractions when available (LP output) so that partial
+    allocations are correctly reflected in cost and abatement totals.
+    Falls back to the 'Selected' boolean for the greedy portfolio.
 
     If lp_portfolio was called with risk_df, the output will contain
     P_post (post-intervention probability of meeting target) per facility.
     """
-    sel = selected_df[selected_df["Selected"]]
+    df = selected_df.copy()
+    # Use LP fractions if present, otherwise treat Selected as binary weight
+    if "x_lp" in df.columns:
+        df["_alloc_cost"] = df["x_lp"] * df["Cost_EUR"]
+        df["_alloc_abat"] = df["x_lp"] * df["AbatementVolume_tCO2"]
+        active = df[df["x_lp"] > 1e-6]
+    else:
+        df["_alloc_cost"] = df["Selected"].astype(float) * df["Cost_EUR"]
+        df["_alloc_abat"] = df["Selected"].astype(float) * df["AbatementVolume_tCO2"]
+        active = df[df["Selected"]]
+
     agg: dict = dict(
-        N_Interventions  = ("InterventionID",         "count"),
-        Total_Cost_EUR   = ("Cost_EUR",                "sum"),
-        Total_Abatement  = ("AbatementVolume_tCO2",    "sum"),
-        Avg_CostPerTonne = ("CostPerTonne",            "mean"),
+        N_Interventions  = ("InterventionID",  "count"),
+        Total_Cost_EUR   = ("_alloc_cost",      "sum"),
+        Total_Abatement  = ("_alloc_abat",      "sum"),
+        Avg_CostPerTonne = ("CostPerTonne",     "mean"),
     )
-    if "P_post" in sel.columns:
+    if "P_post" in active.columns:
         agg["P_post"] = ("P_post", "first")
-    if "pred_post" in sel.columns:
+    if "pred_post" in active.columns:
         agg["pred_post"] = ("pred_post", "first")
-    summary = sel.groupby("Facility").agg(**agg).reset_index()
+    summary = active.groupby("Facility").agg(**agg).reset_index()
     return summary
